@@ -11,12 +11,12 @@ import sys
 debug = True
 
 def main():
-	# p = [1,0,1,1,0,1,1,1,0,1]
-	# q = [1,0,0,1,1,0]
-	p = [7,3,-2,4]
-	q = [2]
+	p = [1,0,1,1,0,1,1,1,0,1]
+	q = [1,0,0,1,1,0]
+	# p = [7,3,-2,4]
+	# q = [1,1]
 
-	poly_mult_fft(p, q)
+	poly_mult_fft(p, list(reversed(q)))
 
 
 def poly_mult_fft(p, q):
@@ -37,83 +37,51 @@ def poly_mult_fft(p, q):
 	# 8. matrix mult M^-1 and VP
 	# 9. return result
 
-	# global debug
+	# Figure out the degree of the resulting polynomial
+	dp = poly_degree(p)
+	dq = poly_degree(q)
 
-	# step 1 ################
-	pn2 = 2**next_power_of_2(len(p))
-	qn2 = 2**next_power_of_2(len(q))
+	result_degree = dp+dq
 
-	# we need n-1 degree in both p and q,
-	# extend with 0s
-	n = max(pn2,qn2)
+	# so the number of points we need to evaluate
+	points = result_degree + 1
 
-	# make q's length a power of 2
-	while len(q) < n:
+	# to make the recursion simple, make the lengths
+	# go to a power of 2
+
+	next2 = 2**next_power_of_2(points)
+
+	while len(q) < next2:
 		q.append(0)
 
-	while len(p) < n:
+	while len(p) < next2:
 		p.append(0)
 
 	lenp = len(p)
-	lenq = len(q)
 
-	# if debug:
-	# 	print 'p = ' + str(p)
-	# 	print 'q = ' + str(q)
+	roots = Nthroots(next2)
 
-	# step 2 ################
-
-	# is this wrong?
-	# points = 2*lenq
-	points = lenq
-
-	# step 3 ################
-
-	# fancy class for roots
-	# we can share a single object for both
-	# polynomials here, because we have ensured that
-	# they are the same length.
-	roots = Nthroots(points)
-
-	# if debug:
-	# 	print 'Primitive root of unity = ' + str(roots)
-
-	# step 4 ################
-
-	# step 4 is recursive, so its a function
 	VP = fft(p, roots)
 	VQ = fft(q, roots)
 
-	# if debug:
-	# 	print VP
-	# 	print VQ
-
-	# sys.exit()
 
 	values = [VP[x]*VQ[x] for x in xrange(lenp)]
 
-	# if debug:
-	# 	print "pq values:"
-	# 	print values
 
-	# sys.exit()
-
-	# step 5 ################
 	# get the inverse matrix of omegas
 	M = [[0 for x in xrange(lenp)] for x in xrange(lenp)]
 
-	sqroot = roots.sq()
 	for x in xrange(lenp):
 		for xx in xrange(lenp):
-			M[x][xx] = sqroot.kth(x*xx)
+			M[x][xx] = roots.kth(x * xx)
 		M[x] = np.conjugate(M[x])
 
-	# if debug:
-	# 	print M
-
-	# sys.exit()
 
 	c = np.dot(M, values)
+
+
+	# there is a warning about the copysign call dropping the
+	# imaginary part of the complex number, so I hide it.
 	warnings.simplefilter("ignore")
 	print [round(math.copysign(1, c[x]) * abs(c[x]/lenp), 2) for x in xrange(len(c))]
 
@@ -125,12 +93,16 @@ def next_power_of_2(int):
 	return n
 
 
+def poly_degree(p_array):
+	for x in xrange(len(p_array), 0, -1):
+		if p_array[x-1] != 0:
+			return x-1
+
+
 def fft(p, omega):
 	if len(p) == 1:
 		return p
 	else:
-		global debug
-
 		# first, split p into evens and odds
 		pe, po = [], []
 		for idx, val in enumerate(p):
@@ -139,15 +111,8 @@ def fft(p, omega):
 			else:
 				po.append(val)
 
-		# if debug:
-		# 	print 'Evens: ' + str(pe)
-		# 	print 'Odds: ' + str(po)
-
 		# the next iteration needs w^2
 		omega_squared = omega.sq()
-
-		# if debug:
-		# 	print 'Next root of unity: ' + str(omega_squared)
 
 		U = fft(pe, omega_squared)
 		W = fft(po, omega_squared)
@@ -155,11 +120,8 @@ def fft(p, omega):
 		V = [0 for x in xrange(len(p))]
 
 		for x in xrange(len(p) / 2):
-			V[x] = U[x] + omega_squared.kth(x)*W[x]
-			V[x + len(p) / 2] = U[x] - omega_squared.kth(x)*W[x]
-
-		# if debug:
-		# 	print V
+			V[x] = U[x] + omega.kth(x)*W[x]
+			V[x + len(p) / 2] = U[x] - omega.kth(x)*W[x]
 
 		return V
 
@@ -171,10 +133,10 @@ class Nthroots(object):
 		self.n = n
 
 	def w(self):
-		return math.pi / self.n
+		return 2 * math.pi / self.n
 
 	def kth(self, k):
-		theta = k * math.pi / self.n
+		theta = 2 * k * math.pi / self.n
 		return cm.cos(theta) + cm.sin(theta) * 1j
 
 	def sq(self):
@@ -192,5 +154,3 @@ class Nthroots(object):
 
 if __name__ == "__main__":
 	main()
-	# n = Nthroots(16)
-	# print n.kth(0)
