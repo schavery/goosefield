@@ -50,6 +50,8 @@ def main():
 	print "FFT: " + str(fft_elapsed)
 
 def poly_mult_naive(p, q):
+	"""This method is _way_ faster than the fft mult
+		because it doesn't waste time with the matrix"""
 	v = [0 for x in xrange(len(p)+len(q))]
 
 	for idx,x in enumerate(p):
@@ -59,6 +61,9 @@ def poly_mult_naive(p, q):
 	# print v
 
 def other_naive_thing(p, q):
+	"""This method is the same as the poly_mult_fft
+		except it uses a naive method to calculate the 
+		values of the polynomials at the points"""
 	dp = poly_degree(p)
 	dq = poly_degree(q)
 	result_degree = dp+dq
