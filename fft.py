@@ -20,9 +20,7 @@ def main():
 	# poly_mult_fft(p, q)
 	# poly_mult_naive(p, q)
 
-
-
-	count = 1
+	count = 100
 	coefficientlimit = 99
 	degreelimit = 1000
 
@@ -37,11 +35,11 @@ def main():
 
 	start = timeit.default_timer()
 	for x in xrange(count):
-		poly_mult_naive(p,q)
+		other_naive_thing(p,q)
 
 	naive_elapsed = timeit.default_timer() - start
 
-	print "FFT: " + str(naive_elapsed)
+	print "Naive: " + str(naive_elapsed)
 
 	start = timeit.default_timer()
 	for x in xrange(count):
@@ -49,7 +47,7 @@ def main():
 
 	fft_elapsed = timeit.default_timer() - start
 
-	print "Naive: " + str(fft_elapsed)
+	print "FFT: " + str(fft_elapsed)
 
 def poly_mult_naive(p, q):
 	v = [0 for x in xrange(len(p)+len(q))]
@@ -60,6 +58,40 @@ def poly_mult_naive(p, q):
 
 	# print v
 
+def other_naive_thing(p, q):
+	dp = poly_degree(p)
+	dq = poly_degree(q)
+	result_degree = dp+dq
+	points = result_degree + 1
+	next2 = 2**next_power_of_2(points)
+	while len(q) < next2:
+		q.append(0)
+	while len(p) < next2:
+		p.append(0)
+	lenp = len(p)
+	roots = Nthroots(next2)
+
+	VP = naive(p, roots)
+	VQ = naive(q, roots)
+
+	values = [VP[x]*VQ[x] for x in xrange(lenp)]
+	M = [[0 for x in xrange(lenp)] for x in xrange(lenp)]
+	for x in xrange(lenp):
+		for xx in xrange(lenp):
+			M[x][xx] = roots.kth(x * xx)
+		M[x] = np.conjugate(M[x])
+
+	c = np.dot(M, values)
+	warnings.simplefilter("ignore")
+	finish = [math.copysign(1, c[x]) * round(abs(c[x]/lenp), 2) for x in xrange(len(c))]
+
+def naive(p, roots):
+	V = [0 for x in xrange(roots.n)]
+	for root in xrange(roots.n):
+		for e,c in enumerate(p):
+			V[root] += c * roots.kth(root * e)
+
+	return V
 
 
 def poly_mult_fft(p, q):
@@ -114,6 +146,7 @@ def poly_mult_fft(p, q):
 	# get the inverse matrix of omegas
 	M = [[0 for x in xrange(lenp)] for x in xrange(lenp)]
 
+	# SLOWWWWW?
 	for x in xrange(lenp):
 		for xx in xrange(lenp):
 			M[x][xx] = roots.kth(x * xx)
@@ -177,6 +210,9 @@ class Nthroots(object):
 	def w(self):
 		return 2 * math.pi / self.n
 
+	def n(self):
+		return self.n
+
 	def kth(self, k):
 		theta = 2 * k * math.pi / self.n
 		return cm.cos(theta) + cm.sin(theta) * 1j
@@ -188,7 +224,7 @@ class Nthroots(object):
 		return self.__class__(new_n)
 
 	def __str__(self):
-		return 'π/' + str(self.n)
+		return '2π/' + str(self.n)
 
 	def __repr__(self):
 		return repr(self.__str__())
