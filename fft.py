@@ -11,12 +11,25 @@ import sys
 debug = True
 
 def main():
-	p = [1,0,1,1,0,1,1,1,0,1]
-	q = [1,0,0,1,1,0]
-	# p = [7,3,-2,4]
-	# q = [1,1]
+	# p = [1,0,1,1,0,1,1,1,0,1]
+	# q = [1,0,0,1,1,0]
+	p = [7,3,-2,4]
+	q = [1,1]
 
-	poly_mult_fft(p, list(reversed(q)))
+	# poly_mult_fft(p, list(reversed(q)))
+	poly_mult_fft(p, q)
+	print
+	poly_mult_naive(p, q)
+
+def poly_mult_naive(p, q):
+	v = [0 for x in xrange(len(p)+len(q))]
+
+	for idx,x in enumerate(p):
+		for idy,y in enumerate(q):
+			v[idx+idy] += x*y
+
+	print v
+
 
 
 def poly_mult_fft(p, q):
