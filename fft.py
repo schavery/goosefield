@@ -5,21 +5,51 @@ import cmath as cm
 import math
 from sets import Set
 import warnings
-
+import random
 import sys
+import timeit
 
-debug = True
 
 def main():
 	# p = [1,0,1,1,0,1,1,1,0,1]
 	# q = [1,0,0,1,1,0]
-	p = [7,3,-2,4]
-	q = [1,1]
+	# p = [7,3,-2,4]
+	# q = [1,1]
 
 	# poly_mult_fft(p, list(reversed(q)))
-	poly_mult_fft(p, q)
-	print
-	poly_mult_naive(p, q)
+	# poly_mult_fft(p, q)
+	# poly_mult_naive(p, q)
+
+
+
+	count = 1
+	coefficientlimit = 99
+	degreelimit = 1000
+
+	dp = random.randint(1,degreelimit)
+	dq = random.randint(1,degreelimit)
+
+	p = [random.randint(0,coefficientlimit) for x in xrange(dp)]
+	q = [random.randint(0,coefficientlimit) for x in xrange(dq)]
+	
+	print "P has degree " + str(dp)
+	print "Q has degree " + str(dq)
+
+	start = timeit.default_timer()
+	for x in xrange(count):
+		poly_mult_naive(p,q)
+
+	naive_elapsed = timeit.default_timer() - start
+
+	print "FFT: " + str(naive_elapsed)
+
+	start = timeit.default_timer()
+	for x in xrange(count):
+		poly_mult_fft(p,q)
+
+	fft_elapsed = timeit.default_timer() - start
+
+	print "Naive: " + str(fft_elapsed)
 
 def poly_mult_naive(p, q):
 	v = [0 for x in xrange(len(p)+len(q))]
@@ -28,7 +58,7 @@ def poly_mult_naive(p, q):
 		for idy,y in enumerate(q):
 			v[idx+idy] += x*y
 
-	print v
+	# print v
 
 
 
@@ -92,11 +122,10 @@ def poly_mult_fft(p, q):
 
 	c = np.dot(M, values)
 
-
 	# there is a warning about the copysign call dropping the
 	# imaginary part of the complex number, so I hide it.
 	warnings.simplefilter("ignore")
-	print [round(math.copysign(1, c[x]) * abs(c[x]/lenp), 2) for x in xrange(len(c))]
+	finish = [math.copysign(1, c[x]) * round(abs(c[x]/lenp), 2) for x in xrange(len(c))]
 
 def next_power_of_2(int):
 	n = 1
