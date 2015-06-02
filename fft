@@ -1,4 +1,24 @@
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
+# Usage: fft [count]
+
+# multiply polynomials with various methods.
+# steps.
+# 1. make sure the polynomials are the same length
+# 2. figure out how many points we need to generate (2d+2)
+# 3. get the nth roots of unity
+# 4. evaluate both p and q at all of the points
+# 4a. this is actually the FFT
+# 4b. split the polynomial into even and odd parts
+# 4c. recurse
+# 5. multiply the results together
+# 5a. now we have a vector of values of pq: VP
+# 5b. Mc = VP
+# 5c. c = M^-1 VP
+# 6. make the M matrix using the roots of unity
+# 7. take the conjugate, divide by number of points
+# 8. matrix mult M^-1 and VP
+# 9. return result
 
 import numpy as np
 import cmath as cm
@@ -10,17 +30,12 @@ import sys
 import timeit
 
 
-def main():
+def main(count):
 	# p = [1,0,1,1,0,1,1,1,0,1]
 	# q = [1,0,0,1,1,0]
 	# p = [7,3,-2,4]
 	# q = [1,1]
 
-	# poly_mult_fft(p, list(reversed(q)))
-	# poly_mult_fft(p, q)
-	# poly_mult_naive(p, q)
-
-	count = 100
 	coefficientlimit = 99
 	degreelimit = 1000
 
@@ -35,7 +50,7 @@ def main():
 
 	start = timeit.default_timer()
 	for x in xrange(count):
-		other_naive_thing(p,q)
+		poly_mult(p,q,False,naive)
 
 	naive_elapsed = timeit.default_timer() - start
 
@@ -43,13 +58,14 @@ def main():
 
 	start = timeit.default_timer()
 	for x in xrange(count):
-		poly_mult_fft(p,q)
+		poly_mult(p,q,False,fft)
 
 	fft_elapsed = timeit.default_timer() - start
 
 	print "FFT: " + str(fft_elapsed)
 
-def poly_mult_naive(p, q):
+
+def poly_mult_naive(p, q, printOut):
 	"""This method is _way_ faster than the fft mult
 		because it doesn't waste time with the matrix"""
 	v = [0 for x in xrange(len(p)+len(q))]
@@ -58,64 +74,15 @@ def poly_mult_naive(p, q):
 		for idy,y in enumerate(q):
 			v[idx+idy] += x*y
 
-	# print v
-
-def other_naive_thing(p, q):
-	"""This method is the same as the poly_mult_fft
-		except it uses a naive method to calculate the 
-		values of the polynomials at the points"""
-	dp = poly_degree(p)
-	dq = poly_degree(q)
-	result_degree = dp+dq
-	points = result_degree + 1
-	next2 = 2**next_power_of_2(points)
-	while len(q) < next2:
-		q.append(0)
-	while len(p) < next2:
-		p.append(0)
-	lenp = len(p)
-	roots = Nthroots(next2)
-
-	VP = naive(p, roots)
-	VQ = naive(q, roots)
-
-	values = [VP[x]*VQ[x] for x in xrange(lenp)]
-	M = [[0 for x in xrange(lenp)] for x in xrange(lenp)]
-	for x in xrange(lenp):
-		for xx in xrange(lenp):
-			M[x][xx] = roots.kth(x * xx)
-		M[x] = np.conjugate(M[x])
-
-	c = np.dot(M, values)
-	warnings.simplefilter("ignore")
-	finish = [math.copysign(1, c[x]) * round(abs(c[x]/lenp), 2) for x in xrange(len(c))]
-
-def naive(p, roots):
-	V = [0 for x in xrange(roots.n)]
-	for root in xrange(roots.n):
-		for e,c in enumerate(p):
-			V[root] += c * roots.kth(root * e)
-
-	return V
+	if printOut == True:
+		print v
+	else:
+		return v
 
 
-def poly_mult_fft(p, q):
-	# steps.
-	# 1. make sure the polynomials are the same length
-	# 2. figure out how many points we need to generate (2d+2)
-	# 3. get the nth roots of unity
-	# 4. evaluate both p and q at all of the points
-	# 4a. this is actually the FFT
-	# 4b. split the polynomial into even and odd parts
-	# 4c. recurse
-	# 5. multiply the results together
-	# 5a. now we have a vector of values of pq
-	# 5b. Mc = VP
-	# 5c. c = M^-1 VP
-	# 6. make the M matrix using the roots of unity
-	# 7. take the conjugate, divide by number of points
-	# 8. matrix mult M^-1 and VP
-	# 9. return result
+def poly_mult(p, q, printOut, func):
+	"""Does all set up and calls func to get the values
+		of the polynomials at the desired points"""
 
 	# Figure out the degree of the resulting polynomial
 	dp = poly_degree(p)
@@ -139,33 +106,43 @@ def poly_mult_fft(p, q):
 
 	lenp = len(p)
 
+	# get the wrapper for the points we need to evaluate
 	roots = Nthroots(next2)
 
-	VP = fft(p, roots)
-	VQ = fft(q, roots)
+	# evaluate the points
+	VP = func(p, roots)
+	VQ = func(q, roots)
 
-
+	# get p*q for each point
 	values = [VP[x]*VQ[x] for x in xrange(lenp)]
-
 
 	# get the inverse matrix of omegas
 	M = [[0 for x in xrange(lenp)] for x in xrange(lenp)]
 
-	# SLOWWWWW?
+	# SLOW?
 	for x in xrange(lenp):
 		for xx in xrange(lenp):
 			M[x][xx] = roots.kth(x * xx)
 		M[x] = np.conjugate(M[x])
 
-
+	# get the complex coefficients
 	c = np.dot(M, values)
 
 	# there is a warning about the copysign call dropping the
 	# imaginary part of the complex number, so I hide it.
 	warnings.simplefilter("ignore")
-	finish = [math.copysign(1, c[x]) * round(abs(c[x]/lenp), 2) for x in xrange(len(c))]
+	result = []
+	for x in c:
+		result.append(math.copysign(1, x) * round(abs(x)/lenp, 2))
+
+	if printOut == True:
+		print result
+	else:
+		return result
+
 
 def next_power_of_2(int):
+	"""Gives the exponent of power of 2 larger than `int`"""
 	n = 1
 	while 2**n < int:
 		n += 1
@@ -174,12 +151,23 @@ def next_power_of_2(int):
 
 
 def poly_degree(p_array):
+	"""Return the index of the highest non-zero element of p_array"""
 	for x in xrange(len(p_array), 0, -1):
 		if p_array[x-1] != 0:
 			return x-1
 
 
+def naive(p, roots):
+	"""Naive method for evaluating p at the points in roots"""
+	V = [0 for x in xrange(roots.n)]
+	for root in xrange(roots.n):
+		for e,c in enumerate(p):
+			V[root] += c * roots.kth(root * e)
+
+	return V
+
 def fft(p, omega):
+	"""Seems like it's based on the Cooley Tukey implementation"""
 	if len(p) == 1:
 		return p
 	else:
@@ -236,4 +224,8 @@ class Nthroots(object):
 
 
 if __name__ == "__main__":
-	main()
+	# you can pass in the number of rounds to evaluate
+	if len(sys.argv) > 1:
+		main(int(sys.argv[1]))
+	# else:
+		# main(100)
