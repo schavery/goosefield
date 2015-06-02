@@ -37,7 +37,7 @@ def main(count):
 	# q = [1,1]
 
 	coefficientlimit = 99
-	degreelimit = 1000
+	degreelimit = 8
 
 	dp = random.randint(1,degreelimit)
 	dq = random.randint(1,degreelimit)
@@ -48,36 +48,20 @@ def main(count):
 	print "P has degree " + str(dp)
 	print "Q has degree " + str(dq)
 
+	# use this call to verify the correctness of the function
+	# correctness(p,q,fft)
+
+	timetrial(p,q,naive,"Naïve: ", count)
+	timetrial(p,q,fft,"FFT: ", count)
+
+	# compare with FOIL
 	start = timeit.default_timer()
 	for x in xrange(count):
-		poly_mult(p,q,False,naive)
+		poly_mult_FOIL(p,q,False)
 
-	naive_elapsed = timeit.default_timer() - start
+	elapsed = timeit.default_timer() - start
+	print "FOIL: " + str(round(elapsed, 4))
 
-	print "Naive: " + str(naive_elapsed)
-
-	start = timeit.default_timer()
-	for x in xrange(count):
-		poly_mult(p,q,False,fft)
-
-	fft_elapsed = timeit.default_timer() - start
-
-	print "FFT: " + str(fft_elapsed)
-
-
-def poly_mult_naive(p, q, printOut):
-	"""This method is _way_ faster than the fft mult
-		because it doesn't waste time with the matrix"""
-	v = [0 for x in xrange(len(p)+len(q))]
-
-	for idx,x in enumerate(p):
-		for idy,y in enumerate(q):
-			v[idx+idy] += x*y
-
-	if printOut == True:
-		print v
-	else:
-		return v
 
 
 def poly_mult(p, q, printOut, func):
@@ -133,12 +117,26 @@ def poly_mult(p, q, printOut, func):
 	warnings.simplefilter("ignore")
 	result = []
 	for x in c:
-		result.append(math.copysign(1, x) * round(abs(x)/lenp, 2))
+		sign = int(math.copysign(1, x))
+		mag = int(round(abs(x)/lenp))
+		result.append(sign * mag)
+
+	result = remove_trailing_zeros(result)
 
 	if printOut == True:
 		print result
 	else:
 		return result
+
+
+def remove_trailing_zeros(p_array):
+	"""Takes off the last zeros so we can compare"""
+	backwards = reversed(p_array)
+	for x in backwards:
+		if x == 0:
+			p_array.pop()
+		else:
+			return p_array
 
 
 def next_power_of_2(int):
@@ -165,6 +163,46 @@ def naive(p, roots):
 			V[root] += c * roots.kth(root * e)
 
 	return V
+
+
+def correctness(p,q,func):
+	"""Compare the output of FOIL with the output of func"""
+	known = poly_mult_FOIL(p,q,False)
+	unknown = poly_mult(p,q,False,func)
+	if known == unknown:
+		return True
+	else:
+		print "Correctness could not be verified."
+		print "Expected: " + str(known)
+		print "Got: " + str(unknown)
+
+
+def timetrial(p,q,func,name,count):
+	"""Run the multiplication with func count times
+		and print out the time required"""
+	start = timeit.default_timer()
+	for x in xrange(count):
+		poly_mult(p,q,False,func)
+
+	elapsed = timeit.default_timer() - start
+	print name + str(round(elapsed, 4))
+
+def poly_mult_FOIL(p, q, printOut):
+	"""This method is _way_ faster than the fft mult
+		because it doesn't waste time with the matrix"""
+	v = [0 for x in xrange(len(p)+len(q))]
+
+	for idx,x in enumerate(p):
+		for idy,y in enumerate(q):
+			v[idx+idy] += x*y
+
+	v = remove_trailing_zeros(v)
+
+	if printOut == True:
+		print v
+	else:
+		return v
+
 
 def fft(p, omega):
 	"""Seems like it's based on the Cooley Tukey implementation"""
@@ -207,8 +245,27 @@ class Nthroots(object):
 		return self.n
 
 	def kth(self, k):
+		# uses polar notation to get the complex coordinates
+		# of k*2π/n radians on unit circle
 		theta = 2 * k * math.pi / self.n
 		return cm.cos(theta) + cm.sin(theta) * 1j
+
+	def kth_exp(self, k):
+		"""The formulas for the DFT algorithm, especially the 
+			Cooley Tukey implementation, show the `twiddle` factor
+			in exponential form, with a negative exponent.
+
+			This conflicts with the `kth` method, which would
+			use a positive exponent, if it were in that form instead
+			of polar.
+
+			The results of using the negative angle seem to be that
+			the last n-1 values in the polynomial come out in reversed
+			ordering, which seems to fit because I've seen some
+			explanations of the DFT use reverse bit ordering"""
+
+		theta = 2 * k * math.pi / self.n
+		return cm.exp(-theta * 1j)
 
 	def sq(self):
 		# doubles the angle omega
@@ -227,5 +284,5 @@ if __name__ == "__main__":
 	# you can pass in the number of rounds to evaluate
 	if len(sys.argv) > 1:
 		main(int(sys.argv[1]))
-	# else:
-		# main(100)
+	else:
+		main(10)
