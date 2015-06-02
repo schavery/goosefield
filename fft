@@ -37,23 +37,34 @@ def main(count):
 	# q = [1,1]
 
 	coefficientlimit = 99
-	degreelimit = 1000
+	degreelimit = 100
 
 	dp = random.randint(1,degreelimit)
 	dq = random.randint(1,degreelimit)
 
 	p = [random.randint(0,coefficientlimit) for x in xrange(dp)]
 	q = [random.randint(0,coefficientlimit) for x in xrange(dq)]
+
+	# sparse versions.
+	# sparsity is the inverse of the percentage of 0s
+	# 1.15^-1 is something like 85% sparse
+	sparsity = 1.15
+	sp = list((np.random.rand(dp) * sparsity).astype(int))
+	sq = list((np.random.rand(dq) * sparsity).astype(int))
 	
 	print "P has degree " + str(dp)
 	print "Q has degree " + str(dq)
 
 	# use this call to verify the correctness of the function
-	# correctness(p,q,fft)
+	correctness(p,q,fft)
+	correctness(sp,sq,naive)
 	# sys.exit()
 
 	timetrial(p,q,naive,"Naïve: ", count)
 	timetrial(p,q,fft,"FFT: ", count)
+
+	timetrial(sp,sq,naive,"Sparse naïve: ", count)
+	timetrial(sp,sq,fft,"Sparse FFT: ", count)	
 
 	# compare with FOIL
 	start = timeit.default_timer()
@@ -62,6 +73,13 @@ def main(count):
 
 	elapsed = timeit.default_timer() - start
 	print "FOIL: " + str(round(elapsed, 4))
+
+	start = timeit.default_timer()
+	for x in xrange(count):
+		poly_mult_FOIL(sp,sq,False)
+
+	elapsed = timeit.default_timer() - start
+	print "Sparse FOIL: " + str(round(elapsed, 4))
 
 
 # global
@@ -334,4 +352,4 @@ if __name__ == "__main__":
 	if len(sys.argv) > 1:
 		main(int(sys.argv[1]))
 	else:
-		main(10)
+		main(2)
