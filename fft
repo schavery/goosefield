@@ -37,7 +37,7 @@ def main(count):
 	# q = [1,1]
 
 	coefficientlimit = 99
-	degreelimit = 8
+	degreelimit = 1000
 
 	dp = random.randint(1,degreelimit)
 	dq = random.randint(1,degreelimit)
@@ -50,6 +50,7 @@ def main(count):
 
 	# use this call to verify the correctness of the function
 	# correctness(p,q,fft)
+	# sys.exit()
 
 	timetrial(p,q,naive,"Naïve: ", count)
 	timetrial(p,q,fft,"FFT: ", count)
@@ -63,6 +64,8 @@ def main(count):
 	print "FOIL: " + str(round(elapsed, 4))
 
 
+# global
+memo = {}
 
 def poly_mult(p, q, printOut, func):
 	"""Does all set up and calls func to get the values
@@ -100,14 +103,26 @@ def poly_mult(p, q, printOut, func):
 	# get p*q for each point
 	values = [VP[x]*VQ[x] for x in xrange(lenp)]
 
-	# get the inverse matrix of omegas
-	M = [[0 for x in xrange(lenp)] for x in xrange(lenp)]
+	# memoization of M*
+	global memo
 
-	# SLOW?
-	for x in xrange(lenp):
-		for xx in xrange(lenp):
-			M[x][xx] = roots.kth(x * xx)
-		M[x] = np.conjugate(M[x])
+	# we use the first 10 coefficients of p as key
+	key = ''
+	for i,x in enumerate(p):
+		if i < 10:
+			key += str(x)
+		else:
+			break
+
+	if key in memo.keys():
+		M = memo[key]
+	else:
+		# otherwise create M* 	
+		M = [[0 for x in xrange(lenp)] for x in xrange(lenp)]
+		for x in xrange(lenp):
+			for xx in xrange(lenp):
+				M[x][xx] = roots.kth(x * xx)
+			M[x] = np.conjugate(M[x])
 
 	# get the complex coefficients
 	c = np.dot(M, values)
@@ -155,16 +170,6 @@ def poly_degree(p_array):
 			return x-1
 
 
-def naive(p, roots):
-	"""Naive method for evaluating p at the points in roots"""
-	V = [0 for x in xrange(roots.n)]
-	for root in xrange(roots.n):
-		for e,c in enumerate(p):
-			V[root] += c * roots.kth(root * e)
-
-	return V
-
-
 def correctness(p,q,func):
 	"""Compare the output of FOIL with the output of func"""
 	known = poly_mult_FOIL(p,q,False)
@@ -185,7 +190,7 @@ def timetrial(p,q,func,name,count):
 		poly_mult(p,q,False,func)
 
 	elapsed = timeit.default_timer() - start
-	print name + str(round(elapsed, 4))
+	print name + str(round(elapsed, 6))
 
 def poly_mult_FOIL(p, q, printOut):
 	"""This method is _way_ faster than the fft mult
@@ -204,8 +209,47 @@ def poly_mult_FOIL(p, q, printOut):
 		return v
 
 
+def dht(p, omega):
+	"""Discrete Hartley Transform
+		Also known as the Fast Hartley Transform
+		Interesting fact: FHT is patented by Stanford U"""
+	if len(p) == 1:
+		return p
+	else:
+		# first, split p into evens and odds
+		pe, po = [], []
+		for idx, val in enumerate(p):
+			if idx % 2 == 0:
+				pe.append(val)
+			else:
+				po.append(val)
+
+		# the next iteration needs w^2
+		omega_squared = omega.sq()
+
+		U = dht(pe, omega_squared)
+		W = dht(po, omega_squared)
+
+		V = [0 for x in xrange(len(p))]
+
+		for x in xrange(len(p) / 2):
+			V[x] = U[x] + omega.kth_real(x)*W[x]
+			V[x + len(p) / 2] = U[x] - omega.kth_real(x)*W[x]
+
+		return V
+
+def naive(p, roots):
+	"""Naive method for evaluating p at the points in roots"""
+	V = [0 for x in xrange(roots.n)]
+	for root in xrange(roots.n):
+		for e,c in enumerate(p):
+			V[root] += c * roots.kth(root * e)
+
+	return V
+
 def fft(p, omega):
-	"""Seems like it's based on the Cooley Tukey implementation"""
+	"""Seems like it's based on the Cooley Tukey implementation
+		DFT = Discrete Fourier Transform"""
 	if len(p) == 1:
 		return p
 	else:
@@ -249,6 +293,11 @@ class Nthroots(object):
 		# of k*2π/n radians on unit circle
 		theta = 2 * k * math.pi / self.n
 		return cm.cos(theta) + cm.sin(theta) * 1j
+
+	def kth_real(self, k):
+		"""The FHT uses real values, not complex."""
+		theta = 2 * k * math.pi / self.n
+		return math.cos(theta) + math.sin(theta)
 
 	def kth_exp(self, k):
 		"""The formulas for the DFT algorithm, especially the 
