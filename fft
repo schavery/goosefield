@@ -28,58 +28,39 @@ import warnings
 import random
 import sys
 import timeit
-
+from multiprocessing import Pool
 
 def main(count):
-	# p = [1,0,1,1,0,1,1,1,0,1]
-	# q = [1,0,0,1,1,0]
-	# p = [7,3,-2,4]
-	# q = [1,1]
 
-	coefficientlimit = 99
-	degreelimit = 100
+	puddle = Pool()
 
-	dp = random.randint(1,degreelimit)
-	dq = random.randint(1,degreelimit)
+	coefficientlimit = 20
+	degreelimits = [10, 20, 50, 100, 200, 500, 1000, 2000]
+	# degreelimits = [10, 20]
+	sparsities = [0.01, 0.02, 0.05, 0.1, 0.2, 0.5]
 
-	p = [random.randint(0,coefficientlimit) for x in xrange(dp)]
-	q = [random.randint(0,coefficientlimit) for x in xrange(dq)]
+	for dl in degreelimits:
+		for s in sparsities:
+			p = [random.randint(1,coefficientlimit) for x in xrange(dl)]
+			q = [random.randint(1,coefficientlimit) for x in xrange(dl)]
 
-	# sparse versions.
-	# sparsity is the inverse of the percentage of 0s
-	# 1.15^-1 is something like 85% sparse
-	sparsity = 1.15
-	sp = list((np.random.rand(dp) * sparsity).astype(int))
-	sq = list((np.random.rand(dq) * sparsity).astype(int))
-	
-	print "P has degree " + str(dp)
-	print "Q has degree " + str(dq)
+			si = int(math.pow(s, -1))
+			sp = list((np.random.rand(dl) * si).astype(int))
+			sq = list((np.random.rand(dl) * si).astype(int))
 
-	# use this call to verify the correctness of the function
-	correctness(p,q,fft)
-	correctness(sp,sq,naive)
-	# sys.exit()
+			p = [p[x] * sp[x] for x in xrange(dl)]
+			q = [q[x] * sq[x] for x in xrange(dl)]
 
-	timetrial(p,q,naive,"Naïve: ", count)
-	timetrial(p,q,fft,"FFT: ", count)
+			r = puddle.apply_async(timetrial, (p,q,naive,"naïve",count,dl,si))
+			s = puddle.apply_async(timetrial, (p,q,fft,"fft",count,dl,si))
+			t = puddle.apply_async(foil_timetrial, (p,q,"foil",count,dl,si))
 
-	timetrial(sp,sq,naive,"Sparse naïve: ", count)
-	timetrial(sp,sq,fft,"Sparse FFT: ", count)	
+			print r.get()
+			print s.get()
+			print t.get()
 
-	# compare with FOIL
-	start = timeit.default_timer()
-	for x in xrange(count):
-		poly_mult_FOIL(p,q,False)
-
-	elapsed = timeit.default_timer() - start
-	print "FOIL: " + str(round(elapsed, 4))
-
-	start = timeit.default_timer()
-	for x in xrange(count):
-		poly_mult_FOIL(sp,sq,False)
-
-	elapsed = timeit.default_timer() - start
-	print "Sparse FOIL: " + str(round(elapsed, 4))
+	puddle.close()
+	puddle.join()
 
 
 # global
@@ -186,6 +167,7 @@ def poly_degree(p_array):
 	for x in xrange(len(p_array), 0, -1):
 		if p_array[x-1] != 0:
 			return x-1
+	return 0
 
 
 def correctness(p,q,func):
@@ -200,7 +182,7 @@ def correctness(p,q,func):
 		print "Got: " + str(unknown)
 
 
-def timetrial(p,q,func,name,count):
+def timetrial(p,q,func,name,count,deg,sparsity):
 	"""Run the multiplication with func count times
 		and print out the time required"""
 	start = timeit.default_timer()
@@ -208,7 +190,20 @@ def timetrial(p,q,func,name,count):
 		poly_mult(p,q,False,func)
 
 	elapsed = timeit.default_timer() - start
-	print name + str(round(elapsed, 6))
+	return name+','+str(deg)+','+str(sparsity)+','+str(round(elapsed/count, 4))
+
+
+def foil_timetrial(p,q,name,count,deg,sparsity):
+	"""Time trial for FOIL method
+		slightly different function signature
+		means different method is required"""
+	start = timeit.default_timer()
+	for x in xrange(count):
+		poly_mult_FOIL(p,q,False)
+
+	elapsed = timeit.default_timer() - start
+	return name+','+str(deg)+','+str(sparsity)+','+str(round(elapsed/count, 4))
+
 
 def poly_mult_FOIL(p, q, printOut):
 	"""This method is _way_ faster than the fft mult
