@@ -35,10 +35,10 @@ def main(count):
 	puddle = Pool()
 
 	coefficientlimit = 20
-	# degreelimits = [10, 20, 50, 100, 200, 500, 1000, 2000]
-	degreelimits = [2000]
-	# sparsities = [0.01, 0.02, 0.05, 0.1, 0.2, 0.5]
-	sparsities = [0.05, 0.1, 0.2, 0.5]
+	degreelimits = [10, 20, 50, 100, 200, 500, 1000, 2000]
+	# degreelimits = [2000]
+	sparsities = [0.01, 0.02, 0.05, 0.1, 0.2, 0.5]
+	# sparsities = [0.05, 0.1, 0.2, 0.5]
 
 	returnvalues = []
 
@@ -55,17 +55,19 @@ def main(count):
 			q = [q[x] * sq[x] for x in xrange(dl)]
 
 
-			# r = puddle.apply_async(foil_timetrial, (p,q,"foil",count,dl,si))
+			r = puddle.apply_async(foil_timetrial, (p,q,"foil",count,dl,si))
 			s = puddle.apply_async(timetrial, (p,q,fft,"fft",count,dl,si))
-			# t = puddle.apply_async(timetrial, (p,q,dht,"hartley",count,dl,si))
+			t = puddle.apply_async(timetrial, (p,q,dht,"hartley",count,dl,si))
 			u = puddle.apply_async(timetrial, (p,q,naive,"naïve",count,dl,si))
 			
-			# returnvalues.append(r)
+			returnvalues.append(r)
 			returnvalues.append(s)
-			# returnvalues.append(t)
+			returnvalues.append(t)
 			returnvalues.append(u)
 
 	puddle.close()
+	# block until all subprocesses are completed.
+	# this might be messing up the calculation of elapsed time?
 	puddle.join()
 
 	for x in returnvalues:
@@ -112,6 +114,7 @@ def poly_mult(p, q, printOut, func):
 	values = [VP[x]*VQ[x] for x in xrange(lenp)]
 
 	# memoization of M*
+	# XXX move all this into polynomial generation
 	global memo
 
 	# we use the first 10 coefficients of p as key
@@ -139,7 +142,7 @@ def poly_mult(p, q, printOut, func):
 		# store in memo.
 		memo[key] = M
 
-	# get the complex coefficients
+	# get the coefficients
 	c = np.dot(M, values)
 
 	# there is a warning about the copysign call dropping the
