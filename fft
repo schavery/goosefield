@@ -35,9 +35,12 @@ def main(count):
 	puddle = Pool()
 
 	coefficientlimit = 20
-	degreelimits = [10, 20, 50, 100, 200, 500, 1000, 2000]
-	# degreelimits = [10, 20]
-	sparsities = [0.01, 0.02, 0.05, 0.1, 0.2, 0.5]
+	# degreelimits = [10, 20, 50, 100, 200, 500, 1000, 2000]
+	degreelimits = [2000]
+	# sparsities = [0.01, 0.02, 0.05, 0.1, 0.2, 0.5]
+	sparsities = [0.05, 0.1, 0.2, 0.5]
+
+	returnvalues = []
 
 	for dl in degreelimits:
 		for s in sparsities:
@@ -51,16 +54,22 @@ def main(count):
 			p = [p[x] * sp[x] for x in xrange(dl)]
 			q = [q[x] * sq[x] for x in xrange(dl)]
 
-			r = puddle.apply_async(timetrial, (p,q,naive,"naïve",count,dl,si))
-			s = puddle.apply_async(timetrial, (p,q,fft,"fft",count,dl,si))
-			t = puddle.apply_async(foil_timetrial, (p,q,"foil",count,dl,si))
 
-			print r.get()
-			print s.get()
-			print t.get()
+			# r = puddle.apply_async(foil_timetrial, (p,q,"foil",count,dl,si))
+			s = puddle.apply_async(timetrial, (p,q,fft,"fft",count,dl,si))
+			# t = puddle.apply_async(timetrial, (p,q,dht,"hartley",count,dl,si))
+			u = puddle.apply_async(timetrial, (p,q,naive,"naïve",count,dl,si))
+			
+			# returnvalues.append(r)
+			returnvalues.append(s)
+			# returnvalues.append(t)
+			returnvalues.append(u)
 
 	puddle.close()
 	puddle.join()
+
+	for x in returnvalues:
+		print x.get()
 
 
 # global
@@ -136,13 +145,17 @@ def poly_mult(p, q, printOut, func):
 	# there is a warning about the copysign call dropping the
 	# imaginary part of the complex number, so I hide it.
 	warnings.simplefilter("ignore")
+
 	result = []
 	for x in c:
 		sign = int(math.copysign(1, x))
-		mag = int(round(abs(x)/lenp))
+		if func == dht:
+			mag = int(round(abs(x)))
+		else:
+			mag = int(round(abs(x)/lenp))
 		result.append(sign * mag)
 
-	result = remove_trailing_zeros(result)
+	result = remove_trailing_zeros(result) 
 
 	if printOut == True:
 		print result
@@ -368,5 +381,5 @@ if __name__ == "__main__":
 	if len(sys.argv) > 1:
 		main(int(sys.argv[1]))
 	else:
-		correctness([1,1,1,1],[1,1,1,1],dht)
+		print "Specify the number of rounds."
 		# main(2)
