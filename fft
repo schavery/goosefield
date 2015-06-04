@@ -106,22 +106,29 @@ def poly_mult(p, q, printOut, func):
 	global memo
 
 	# we use the first 10 coefficients of p as key
-	key = ''
-	for i,x in enumerate(p):
-		if i < 10:
-			key += str(x)
-		else:
-			break
+	key = get_key(p)
 
 	if key in memo.keys():
 		M = memo[key]
 	else:
-		# otherwise create M* 	
+		# otherwise create M*
 		M = [[0 for x in xrange(lenp)] for x in xrange(lenp)]
 		for x in xrange(lenp):
-			for xx in xrange(lenp):
-				M[x][xx] = roots.kth(x * xx)
-			M[x] = np.conjugate(M[x])
+			# Hartley uses reals, not complex.
+			if func == dht:
+				for xx in xrange(lenp):
+					M[x][xx] = roots.kth_real(x * xx)
+			else:
+				for xx in xrange(lenp):
+					M[x][xx] = roots.kth(x * xx)
+				M[x] = np.conjugate(M[x])
+
+		if func == dht:
+			# we need invert the matrix.
+			M = np.linalg.inv(M)
+
+		# store in memo.
+		memo[key] = M
 
 	# get the complex coefficients
 	c = np.dot(M, values)
@@ -142,6 +149,17 @@ def poly_mult(p, q, printOut, func):
 	else:
 		return result
 
+def get_key(p):
+	"""Create index into memoization"""
+	key = ''
+	for i,x in enumerate(p):
+		if i < 10:
+			key += str(x)
+		else:
+			break
+
+	return key
+
 
 def remove_trailing_zeros(p_array):
 	"""Takes off the last zeros so we can compare"""
@@ -150,7 +168,10 @@ def remove_trailing_zeros(p_array):
 		if x == 0:
 			p_array.pop()
 		else:
-			return p_array
+			break
+
+	if len(p_array) == 0:
+		return [0]
 
 
 def next_power_of_2(int):
@@ -347,4 +368,5 @@ if __name__ == "__main__":
 	if len(sys.argv) > 1:
 		main(int(sys.argv[1]))
 	else:
-		main(2)
+		correctness([1,1,1,1],[1,1,1,1],dht)
+		# main(2)
